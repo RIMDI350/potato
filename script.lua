@@ -7,7 +7,8 @@ getgenv().Config = {
     esp = false,
     OutlineColor = Color3.fromRGB(255, 255, 255),
     ShowWatermark = true,
-    PurpleNightSky = false
+    PurpleNightSky = false,
+    WeaponColor = Color3.fromRGB(255, 255, 255) -- Couleur par défaut
 }
 
 local reps = game:GetService("ReplicatedStorage")
@@ -22,11 +23,9 @@ local U = require(reps.Modules.Utility)
 local EL = require(reps.Modules.EnumLibrary)
 local GU = require(reps.Modules.GameplayUtility)
 
-
 --- arme changer ---
 
 local viewModels = reps:WaitForChild("Assets"):WaitForChild("Temp"):WaitForChild("ViewModels")
-
 
 local enabled = false
 local childAddedConn = nil
@@ -35,22 +34,23 @@ local originalMaterials = {}
 local function applyWireframeToModel(model)
     for _, part in ipairs(model:GetDescendants()) do
         if part:IsA("BasePart") then
-            -- Sauvegarde le matériau d'origine (une seule fois par part)
+            -- Sauvegarde le matériau d'origine
             if originalMaterials[part] == nil then
                 originalMaterials[part] = part.Material
             end
 
             part.Material = Enum.Material.ForceField
-            part.Color = Color3.fromRGB(255, 255, 255)
+            part.Color = getgenv().Config.WeaponColor
 
-            if not part:FindFirstChild("WireframeEffect") then
-                local wireframe = Instance.new("WireframeHandleAdornment")
+            local wireframe = part:FindFirstChild("WireframeEffect")
+            if not wireframe then
+                wireframe = Instance.new("WireframeHandleAdornment")
                 wireframe.Name = "WireframeEffect"
                 wireframe.Adornee = part
-                wireframe.Color3 = Color3.fromRGB(255, 255, 255)
                 wireframe.AlwaysOnTop = true
                 wireframe.Parent = part
             end
+            wireframe.Color3 = getgenv().Config.WeaponColor
         end
     end
 end
@@ -62,7 +62,6 @@ local function removeWireframeFromModel(model)
             if wf then
                 wf:Destroy()
             end
-            -- Restaure le matériau d'origine
             if originalMaterials[part] then
                 part.Material = originalMaterials[part]
             end
@@ -75,7 +74,6 @@ local function setEnabled(state)
     enabled = state
 
     if state then
-        -- ON : applique sur toutes les armes existantes + les nouvelles
         for _, model in ipairs(viewModels:GetChildren()) do
             applyWireframeToModel(model)
         end
@@ -83,7 +81,6 @@ local function setEnabled(state)
             applyWireframeToModel(child)
         end)
     else
-        -- OFF : retire l'effet et arrête l'auto-application
         if childAddedConn then
             childAddedConn:Disconnect()
             childAddedConn = nil
@@ -93,7 +90,13 @@ local function setEnabled(state)
         end
     end
 end
----------
+
+local function updateWeaponColors()
+    if not enabled then return end
+    for _, model in ipairs(viewModels:GetChildren()) do
+        applyWireframeToModel(model)
+    end
+end
 
 --- Purple Night Sky System ---
 
@@ -108,10 +111,6 @@ local purpleNightData = {
     SkyRt = "rbxassetid://252763782",
     SkyUp = "rbxassetid://252763629"
 }
-
-local ExampleDropdown = Groupbox1:CreateDropdown("Example Dropdown", {"Option 1", "Option 2", "Option 3"}, function(state)
-   print(state)
-end)
 
 local function applyPurpleSky()
     for _, obj in ipairs(Lighting:GetChildren()) do
@@ -201,8 +200,6 @@ runs.RenderStepped:Connect(function()
         end
     end
 end)
-
----------
 
 --- silent aim ---
 local e, gun = pcall(require, lplr.PlayerScripts.Modules.ItemTypes.Gun)
@@ -371,11 +368,21 @@ Groupbox3:CreateToggle("Purple Night Sky", function(state)
     end
 end)
 
-
 Groupbox1:CreateToggle("Change material weapons", function(state)
     setEnabled(state)
 end)
 
-Groupbox1:CreateDropdown("Example Dropdown", {"White", "Blue", "Purple"}, function(state)
-   print(state)
+local colors = {
+    ["White"] = Color3.fromRGB(255, 255, 255),
+    ["Blue"] = Color3.fromRGB(0, 150, 255),
+    ["Purple"] = Color3.fromRGB(170, 0, 255),
+    ["Red"] = Color3.fromRGB(255, 0, 0),
+    ["Green"] = Color3.fromRGB(0, 255, 0)
+}
+
+Groupbox1:CreateDropdown("Weapon Material Color", {"White", "Blue", "Purple", "Red", "Green"}, function(selectedOption)
+    if colors[selectedOption] then
+        getgenv().Config.WeaponColor = colors[selectedOption]
+        updateWeaponColors()
+    end
 end)
